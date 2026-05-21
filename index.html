@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Study Plan Dashboard</title>
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Nhúng thư viện Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Nhúng Chart.js & Marked.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --glass: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-hover: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-1: #3b82f6;
+      --accent-2: #8b5cf6;
+      --accent-3: #10b981;
+      --gradient: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 2rem;
+      line-height: 1.5;
+    }
+
+    [v-cloak] { display: none; }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding-bottom: 5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+      animation: fadeInDown 0.8s ease-out;
+    }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+      letter-spacing: -1px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      font-weight: 300;
+    }
+
+    .sec-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .sec-label::before {
+      content: '';
+      display: block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--gradient);
+    }
+
+    .week-overview {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+
+    .wday {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 1.2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .wday::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: transparent;
+      transition: all 0.3s ease;
+    }
+
+    .wday:hover {
+      transform: translateY(-5px);
+      background: var(--glass-hover);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+
+    .wday.active {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .wday.active.type-language::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .wday.active.type-tech::before { background: linear-gradient(90deg, #10b981, #34d399); }
+
+    .wday-name {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .wday-type {
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 0.8rem;
+    }
+
+    .wday-pill {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      display: inline-block;
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* Tabs */
+    .tab-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      justify-content: center;
+    }
+
+    .tab {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      padding: 0.8rem 1.5rem;
+      border-radius: 30px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .tab:hover {
+      background: var(--glass-hover);
+      color: var(--text-main);
+    }
+
+    .tab.on {
+      background: var(--gradient);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+    }
+
+    /* Panels */
+    .panel {
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    .day-badge {
+      display: inline-block;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.5rem 1.2rem;
+      border-radius: 30px;
+      margin-bottom: 2rem;
+      background: rgba(255,255,255,0.1);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .time-blocks {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .tblock {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .tblock:hover {
+      transform: translateX(5px);
+      box-shadow: -5px 5px 20px rgba(0,0,0,0.2);
+      border-color: rgba(255,255,255,0.15);
+    }
+
+    .tblock-head {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 1.2rem 1.5rem;
+      background: rgba(0,0,0,0.3);
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .tblock-time {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent-1);
+      white-space: nowrap;
+      min-width: 120px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .tblock-time::before {
+      content: '🕒';
+      font-size: 1.1rem;
+    }
+
+    .tblock-label {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .tblock-tag {
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.3rem 1rem;
+      border-radius: 20px;
+      margin-left: auto;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tblock-body {
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .mini-card {
+      background: rgba(0,0,0,0.2);
+      border-radius: 16px;
+      padding: 1.2rem;
+      border: 1px solid rgba(255,255,255,0.03);
+      transition: all 0.3s ease;
+    }
+    
+    .mini-card:hover {
+      background: rgba(0,0,0,0.4);
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .mc-label {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .mc-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    .mc-items {
+      list-style: none;
+    }
+
+    .mc-items li {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      padding: 0.4rem 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.8rem;
+    }
+
+    /* Custom Checkbox */
+    .custom-checkbox {
+      appearance: none; width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.3); border-radius: 6px;
+      background: rgba(0,0,0,0.2); cursor: pointer; position: relative;
+      transition: all 0.2s; flex-shrink: 0; margin-top: 2px;
+    }
+    .custom-checkbox:checked { background: var(--accent-1); border-color: var(--accent-1); }
+    .custom-checkbox:checked::after {
+      content: '\2714'; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); color: white; font-size: 12px; font-weight: bold;
+    }
+    .item-text { transition: all 0.2s; flex: 1; }
+    .item-text.done { text-decoration: line-through; color: rgba(255,255,255,0.3); }
+
+    /* Ratios */
+    .ratios-container {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .ratio-row {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .ratio-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .ratio-label {
+      font-size: 1rem;
+      font-weight: 500;
+      width: 120px;
+      flex-shrink: 0;
+    }
+
+    .ratio-wrap {
+      flex: 1;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      height: 12px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    .ratio-bar {
+      height: 100%;
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+      transition: width 0.5s ease;
+    }
+    
+    .ratio-bar::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
+      animation: shimmer 2s infinite;
+    }
+
+    .ratio-pct {
+      font-size: 1rem;
+      font-weight: 600;
+      width: 45px;
+      text-align: right;
+    }
+
+    /* Monthly Goals */
+    .monthly-goals-container {
+      background: var(--glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 2rem; margin-bottom: 2rem; backdrop-filter: blur(10px);
+    }
+    .monthly-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;}
+    .monthly-progress { color: var(--accent-3); font-weight: 600; font-size: 1.1rem; }
+    .progress-bg { background: rgba(0,0,0,0.3); border-radius: 10px; height: 10px; overflow: hidden; margin-bottom: 1.5rem; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 10px; transition: width 0.5s ease; }
+    .monthly-item { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; cursor: pointer; padding: 0.8rem; border-radius: 8px; transition: background 0.2s; border: 1px solid transparent;}
+    .monthly-item:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .monthly-item .custom-checkbox { width: 24px; height: 24px; border-radius: 8px; }
+    .monthly-item .item-text { font-size: 1.1rem; color: var(--text-main); }
+
+    /* Tip */
+    .tip {
+      background: rgba(59, 130, 246, 0.1);
+      border-left: 4px solid var(--accent-1);
+      border-radius: 0 16px 16px 0;
+      padding: 1.5rem;
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    
+    .tip::before {
+      content: '💡';
+      font-size: 1.5rem;
+    }
+
+    .tip strong {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    /* Floating Action Button */
+    .fab-container { position: fixed; bottom: 2rem; right: 2rem; display: flex; flex-direction: column; gap: 1rem; z-index: 100; }
+    .fab {
+      background: var(--gradient); color: white; border: none; border-radius: 30px;
+      padding: 1rem 1.5rem; font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 1rem;
+      cursor: pointer; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+      transition: transform 0.3s ease, box-shadow 0.3s ease; display: flex; align-items: center; gap: 0.5rem; justify-content: center;
+    }
+    .fab:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 8px 25px rgba(59, 130, 246, 0.6);
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1000;
+      display: flex; justify-content: center; align-items: center; padding: 2rem;
+      animation: fadeIn 0.2s ease-out;
+    }
+    .modal {
+      background: var(--bg); border: 1px solid var(--glass-border); border-radius: 20px;
+      width: 100%; max-width: 900px; max-height: 90vh;
+      display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .modal.modal-lg { 
+      max-width: 95vw; 
+      width: 1400px; 
+      height: 85vh; 
+      resize: both; 
+      overflow: hidden; 
+    }
+    .modal-header {
+      padding: 1.5rem 2rem; border-bottom: 1px solid var(--glass-border);
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    .modal-header h2 { font-size: 1.5rem; font-weight: 700; color: white; }
+    .btn-close {
+      background: rgba(255,255,255,0.1); border: none; color: white;
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+      font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .btn-close:hover { background: rgba(239, 68, 68, 0.8); }
+
+    .modal-body { padding: 2rem; overflow-y: auto; flex: 1; }
+    .modal-footer {
+      padding: 1.5rem 2rem; border-top: 1px solid var(--glass-border);
+      display: flex; justify-content: space-between; flex-shrink: 0;
+      background: rgba(0,0,0,0.2); border-radius: 0 0 20px 20px;
+    }
+
+    /* Form Elements */
+    .edit-tabs { display: flex; gap: 1rem; margin-bottom: 2rem; overflow-x: auto; padding-bottom: 0.5rem;}
+    .edit-tab {
+      background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+      color: var(--text-muted); padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;
+      font-weight: 500; font-family: 'Outfit', sans-serif; white-space: nowrap;
+    }
+    .edit-tab.active { background: var(--accent-1); color: white; border-color: var(--accent-1); }
+
+    .edit-block {
+      background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border);
+      border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; position: relative;
+    }
+    .edit-block-header { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+    
+    .input-group { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 120px; }
+    .input-group label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .input-group input, .input-group select {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border);
+      color: white; padding: 0.6rem 0.8rem; border-radius: 6px; font-family: 'Outfit', sans-serif;
+      outline: none; transition: border-color 0.2s; width: 100%;
+    }
+    .input-group select { appearance: none; }
+    .input-group select option { background: var(--bg); color: white; }
+    .input-group input:focus, .input-group select:focus { border-color: var(--accent-1); }
+
+    .edit-card {
+      background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+    }
+    .edit-card-header { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    
+    .item-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .item-row input { flex: 1; }
+
+    .btn-sm {
+      background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 6px;
+      padding: 0.4rem 0.8rem; cursor: pointer; font-size: 0.85rem; font-family: 'Outfit', sans-serif;
+      transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+    }
+    .btn-sm:hover { background: rgba(255,255,255,0.2); }
+    .btn-danger { background: rgba(239, 68, 68, 0.1); color: #fca5a5; }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.5); color: white; }
+    
+    .btn-primary { background: var(--accent-1); color: white; font-weight: 600; padding: 0.8rem 2rem; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif;}
+    .btn-primary:hover { background: #2563eb; transform: translateY(-2px); }
+    .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    .btn-text { background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-family: 'Outfit', sans-serif; text-decoration: underline; }
+    .btn-text:hover { color: white; }
+
+    /* Loading Overlay */
+    .loading-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(11, 15, 25, 0.95); z-index: 2000;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: var(--text-main); font-family: 'Outfit', sans-serif; font-size: 1.2rem;
+      backdrop-filter: blur(10px);
+    }
+    .spinner {
+      width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1);
+      border-left-color: var(--accent-1); border-radius: 50%;
+      animation: spin 1s linear infinite; margin-bottom: 1.5rem;
+    }
+    .sync-status { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem; }
+    
+    .cloud-saving-toast {
+      position: fixed; top: 2rem; right: 2rem; background: rgba(16, 185, 129, 0.9); color: white;
+      padding: 0.8rem 1.5rem; border-radius: 30px; font-weight: 600; font-size: 0.9rem; z-index: 2000;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3); backdrop-filter: blur(5px);
+      animation: fadeInDown 0.3s ease-out;
+    }
+
+    /* AI Response styles */
+    .ai-response h1, .ai-response h2, .ai-response h3 { color: white; margin-bottom: 0.5rem; margin-top: 1rem; font-size: 1.2rem; }
+    .ai-response p { margin-bottom: 1rem; }
+    .ai-response ul { margin-left: 1.5rem; margin-bottom: 1rem; }
+    .ai-response strong { color: var(--accent-1); }
+
+    /* custom scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+    /* Animations */
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Heatmap CSS */
+    .heatmap-container {
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-rows: repeat(7, 1fr);
+      gap: 4px;
+      width: max-content;
+    }
+    .heatmap-cell {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.05);
+      transition: transform 0.2s;
+      cursor: crosshair;
+    }
+    .heatmap-cell:hover { transform: scale(1.4); z-index: 10; position: relative;}
+    .heatmap-cell.level-1 { background: rgba(16, 185, 129, 0.3); }
+    .heatmap-cell.level-2 { background: rgba(16, 185, 129, 0.6); }
+    .heatmap-cell.level-3 { background: rgba(16, 185, 129, 0.8); }
+    .heatmap-cell.level-4 { background: #10b981; box-shadow: 0 0 10px rgba(16,185,129,0.5); }
+
+    /* Quick Notes Panel */
+    .notes-panel {
+      position: fixed; top: 0; right: -420px; width: 400px; height: 100vh; z-index: 200;
+      background: rgba(10, 15, 30, 0.95); backdrop-filter: blur(20px);
+      border-left: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column;
+      box-shadow: -10px 0 40px rgba(0,0,0,0.5); transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+    }
+    .notes-panel.open { right: 0; }
+    .notes-header { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+    .notes-header h3 { color: white; font-size: 1.2rem; font-weight: 700; }
+    .notes-toolbar { padding: 0.8rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; gap: 0.5rem; flex-shrink: 0; }
+    .notes-toolbar button { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-family: 'Outfit', sans-serif; transition: all 0.2s; }
+    .notes-toolbar button:hover, .notes-toolbar button.active { background: var(--accent-1); color: white; border-color: var(--accent-1); }
+    .notes-textarea { flex: 1; padding: 1.5rem; background: transparent; border: none; color: #e2e8f0; font-family: 'Outfit', sans-serif; font-size: 0.95rem; line-height: 1.7; resize: none; outline: none; }
+    .notes-preview { flex: 1; padding: 1.5rem; overflow-y: auto; color: #e2e8f0; line-height: 1.7; }
+    .notes-preview h1, .notes-preview h2, .notes-preview h3 { color: white; }
+    .notes-preview code { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.88rem; color: #a5f3fc; }
+    .notes-preview pre { background: rgba(0,0,0,0.4); padding: 1rem; border-radius: 8px; overflow-x: auto; }
+    .notes-preview pre code { background: none; padding: 0; }
+    .notes-footer { padding: 1rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 0.8rem; flex-shrink: 0; }
+    .notes-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 199; display: none; }
+    .notes-overlay.open { display: block; }
+
+    @media (max-width: 768px) {
+      .week-overview { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+      .tblock-head { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+      .tblock-tag { margin-left: 0; }
+      h1 { font-size: 2.2rem; }
+      .modal { max-height: 100vh; border-radius: 0; border: none; }
+      .modal-body[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app" class="container" v-cloak>
+  
+  <div v-if="isLoading" class="loading-overlay">
+    <div class="spinner"></div>
+    <h3>Đang đồng bộ dữ liệu...</h3>
+    <p class="sync-status">Đang kết nối tới Supabase Cloud</p>
+  </div>
+  
+  <div v-if="isSavingSilently" class="cloud-saving-toast">
+    ☁️ Đang lưu lên Cloud...
+  </div>
+
+  <header>
+    <h1>Hành Trình Kỷ Luật</h1>
+    <p class="subtitle">Hôm nay là: <strong style="color: white">{{ todayFormatted }}</strong></p>
+  </header>
+
+  <p class="sec-label">Tổng quan tuần</p>
+  <div class="week-overview">
+    <div v-for="(d, i) in week" :key="i" 
+         class="wday" 
+         :class="[i === activeDay ? 'active' : '', 'type-' + d.data.type]"
+         @click="selectDay(i)">
+      <div class="wday-name" :style="{color: d.data.pillColor}">
+        {{ d.day }} <span v-if="i === todayIndex" style="font-size:0.8rem"><br>(Hôm nay)</span>
+      </div>
+      <div class="wday-type" style="color:var(--text-main)">{{ d.data.label }}</div>
+      <span class="wday-pill" :style="{background: d.data.pillBg, color: d.data.pillColor}">
+        {{ d.data.type === 'language' ? 'EN + ZH' : 'CCNA·AWS·WS' }}
+      </span>
+    </div>
+  </div>
+
+  <div class="tab-row">
+    <button v-for="t in tabs" :key="t.key" 
+            class="tab" :class="{ on: activeTab === t.key }"
+            @click="activeTab = t.key">
+      {{ t.label }}
+    </button>
+  </div>
+  
+  <div id="panels">
+    <div v-for="t in tabs" :key="t.key" class="panel" v-show="activeTab === t.key">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom: 2rem;">
+        <span class="day-badge" :style="{background: t.data.badgeBg, color: t.data.badgeColor, margin:0}">{{ t.data.badge }}</span>
+        <div v-if="activeDay === todayIndex" style="color: var(--text-main); font-weight: 600; display:flex; align-items:center; gap:0.5rem">
+          Tiến độ hôm nay: <span style="color: var(--accent-1); font-size:1.2rem">{{ todayPercent }}%</span>
+        </div>
+      </div>
+      
+      <div class="time-blocks">
+        <div class="tblock" v-for="(b, bIndex) in t.data.blocks" :key="bIndex">
+          <div class="tblock-head">
+            <span class="tblock-time" :style="{color: b.tagColor}">{{ b.time }}</span>
+            <span class="tblock-label">{{ b.label }}</span>
+            <span class="tblock-tag" :style="{background: b.tagBg, color: b.tagColor}">{{ b.tag }}</span>
+          </div>
+          <div class="tblock-body">
+            
+            <div class="mini-card" v-for="(c, cIndex) in b.cards" :key="cIndex">
+              <div class="mc-label" :style="{color: c.color}">
+                <div class="mc-dot" :style="{background: c.dot, boxShadow: '0 0 8px ' + c.dot}"></div>
+                {{ c.label }}
+              </div>
+              <ul class="mc-items">
+                <li v-for="(it, iIndex) in c.items" :key="iIndex">
+                  <input v-if="activeDay === todayIndex" type="checkbox" class="custom-checkbox" :checked="isTaskChecked(bIndex, cIndex, iIndex)" @change="toggleTask(bIndex, cIndex, iIndex)">
+                  <span class="item-text" :class="{done: activeDay === todayIndex && isTaskChecked(bIndex, cIndex, iIndex)}">{{ it }}</span>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="sec-label" style="margin-top:3rem">Tỷ lệ thời gian phân bổ</p>
+  <div class="ratios-container" v-if="appData">
+    <div class="ratio-row" v-for="(r, idx) in appData.ratios" :key="idx">
+      <span class="ratio-label" style="color:var(--text-main)">{{ r.label }}</span>
+      <div class="ratio-wrap"><div class="ratio-bar" :style="{width: r.pct + '%', background: r.bar}"></div></div>
+      <span class="ratio-pct" style="color:var(--text-main)">{{ r.pct }}%</span>
+    </div>
+  </div>
+
+  <p class="sec-label" style="margin-top:3rem">Mục tiêu Tháng</p>
+  <div class="monthly-goals-container" v-if="appData && appData.monthlyGoals">
+    <div class="monthly-header">
+      <h3 style="color:var(--text-main); font-weight:600">{{ appData.monthlyGoals.title }}</h3>
+      <span class="monthly-progress">{{ monthlyPercent }}% hoàn thành</span>
+    </div>
+    <div class="progress-bg"><div class="progress-bar" :style="{width: monthlyPercent + '%'}"></div></div>
+    
+    <div class="monthly-items">
+      <label v-for="(item, idx) in appData.monthlyGoals.items" :key="item.id" class="monthly-item">
+        <input type="checkbox" class="custom-checkbox" v-model="item.done" @change="saveToCloudSilently()">
+        <span class="item-text" :class="{done: item.done}">{{ item.text }}</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="tip">
+    <div><strong>Lưu ý:</strong> Hãy check công việc hàng ngày để biểu đồ thống kê đo được phong độ của bạn. Cuối tuần nhớ bật AI để xem nhận xét!</div>
+  </div>
+
+  <!-- Floating Action Buttons -->
+  <div class="fab-container">
+    <button class="fab" style="background: var(--accent-3);" @click="openAnalytics">
+      📊 Thống kê & AI
+    </button>
+    <button class="fab" style="background: linear-gradient(135deg, #f59e0b, #d97706);" @click="showNotes = true" title="Mở sổ tay ghi chú">
+      📝 Ghi Chú
+    </button>
+    <button class="fab" @click="openEditor">
+      ⚙️ Chỉnh sửa Lịch
+    </button>
+  </div>
+
+  <!-- Notes Overlay -->
+  <div class="notes-overlay" :class="{open: showNotes}" @click="showNotes = false"></div>
+  
+  <!-- Quick Notes Panel -->
+  <div class="notes-panel" :class="{open: showNotes}">
+    <div class="notes-header">
+      <h3>📝 Sổ tay ghi chú</h3>
+      <div style="display:flex; gap:0.5rem; align-items:center;">
+        <span v-if="notesSaved" style="font-size:0.8rem; color:#34d399; opacity:0.8">✔ Đã lưu</span>
+        <button class="btn-close" @click="showNotes = false">×</button>
+      </div>
+    </div>
+    <div class="notes-toolbar">
+      <button :class="{active: notesMode === 'edit'}" @click="notesMode = 'edit'">✏️ Viết</button>
+      <button :class="{active: notesMode === 'preview'}" @click="notesMode = 'preview'">👁️ Xem</button>
+      <div style="flex:1"></div>
+      <button @click="clearNotes" style="color:#fca5a5" title="Xóa toàn bộ">🗑️ Xóa</button>
+    </div>
+    <textarea v-if="notesMode === 'edit'" class="notes-textarea" v-model="noteContent"
+      placeholder="Ghi nối dung nháp của bạn tại đây...
+
+## Hỗ trợ Markdown:
+**in đậm**, *in nghiêng*, `code inline`
+```
+code block
+```
+- danh sách"></textarea>
+    <div v-if="notesMode === 'preview'" class="notes-preview ai-response" v-html="renderMarkdown(noteContent || '*Chưa có nội dung...*')"></div>
+    <div class="notes-footer">
+      <button class="btn-primary" style="flex:1; justify-content:center" @click="saveNotes" :disabled="notesSaving">
+        {{ notesSaving ? 'Đang lưu...' : '☁️ Lưu lên Cloud' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div v-if="showEditModal" class="modal-backdrop" @click.self="showEditModal = false">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Chỉnh sửa Lịch Học (Cloud)</h2>
+        <button class="btn-close" @click="showEditModal = false">×</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="edit-tabs">
+          <button class="edit-tab" :class="{active: editingTarget === 'lang'}" @click="editingTarget = 'lang'">Language Day</button>
+          <button class="edit-tab" :class="{active: editingTarget === 'tech'}" @click="editingTarget = 'tech'">Tech Day</button>
+          <button class="edit-tab" :class="{active: editingTarget === 'ratios'}" @click="editingTarget = 'ratios'">Tỷ lệ thời gian</button>
+          <button class="edit-tab" :class="{active: editingTarget === 'monthly'}" @click="editingTarget = 'monthly'">Mục tiêu Tháng</button>
+        </div>
+
+        <div v-if="editingTarget === 'lang' || editingTarget === 'tech'">
+          <div v-for="(b, bIndex) in editData[editingTarget].blocks" :key="bIndex" class="edit-block">
+            <div class="edit-block-header">
+              <div class="input-group">
+                <label>Thời gian</label>
+                <input type="text" v-model="b.time" placeholder="VD: 8:00 - 10:00">
+              </div>
+              <div class="input-group">
+                <label>Tên Khung Giờ</label>
+                <input type="text" v-model="b.label" placeholder="VD: English deep work">
+              </div>
+              <div class="input-group">
+                <label>Tag (Sáng/Chiều/Tối)</label>
+                <select v-model="b.tag" @change="updateTagColor(b, editingTarget)">
+                  <option value="Sáng">Sáng</option>
+                  <option value="Chiều">Chiều</option>
+                  <option value="Tối">Tối</option>
+                  <option value="Tự chọn">Tự chọn</option>
+                </select>
+              </div>
+              <button class="btn-sm btn-danger" @click="removeBlock(editingTarget, bIndex)" title="Xóa khung giờ này">🗑️ Xóa</button>
+            </div>
+
+            <div class="edit-cards">
+              <div v-for="(c, cIndex) in b.cards" :key="cIndex" class="edit-card">
+                <div class="edit-card-header">
+                  <div class="input-group">
+                    <label>Tên Task Nhỏ (Card)</label>
+                    <input type="text" v-model="c.label" placeholder="VD: Listening & shadowing">
+                  </div>
+                  <div class="input-group" style="max-width: 100px">
+                    <label>Màu Dot</label>
+                    <input type="color" v-model="c.dot" style="padding:0; height: 38px;">
+                  </div>
+                  <button class="btn-sm btn-danger" @click="removeCard(b, cIndex)">Xóa Card</button>
+                </div>
+
+                <div>
+                  <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Các nội dung (Items):</label>
+                  <div v-for="(it, iIndex) in c.items" :key="iIndex" class="item-row">
+                    <input type="text" v-model="c.items[iIndex]">
+                    <button class="btn-sm btn-danger" @click="removeItem(c, iIndex)">×</button>
+                  </div>
+                  <button class="btn-sm" @click="addItem(c)" style="margin-top: 0.5rem">+ Thêm nội dung</button>
+                </div>
+              </div>
+              <button class="btn-sm" @click="addCard(b)">+ Thêm Card (Task mới)</button>
+            </div>
+          </div>
+          <button class="btn-sm" @click="addBlock(editingTarget)" style="width: 100%; padding: 1rem; border: 1px dashed var(--glass-border); font-size: 1rem; color: var(--accent-1); font-weight: bold;">
+            + THÊM KHUNG GIỜ MỚI
+          </button>
+        </div>
+
+        <div v-if="editingTarget === 'ratios'">
+          <div class="tip" style="margin-bottom: 1.5rem">
+            <div>Chỉnh sửa % thanh tiến độ. Lưu ý: Thanh hiển thị tự scale theo phần trăm bạn nhập.</div>
+          </div>
+          <div v-for="(r, rIndex) in editData.ratios" :key="rIndex" class="edit-card" style="display: flex; gap: 1rem; align-items: center;">
+            <div class="input-group">
+              <label>Tên kỹ năng</label>
+              <input type="text" v-model="r.label">
+            </div>
+            <div class="input-group" style="max-width: 100px;">
+              <label>Phần trăm (%)</label>
+              <input type="number" v-model="r.pct">
+            </div>
+            <button class="btn-sm btn-danger" @click="editData.ratios.splice(rIndex, 1)">🗑️ Xóa</button>
+          </div>
+          <button class="btn-sm" @click="editData.ratios.push({label:'Môn mới', pct:10, bar:'linear-gradient(90deg, #3b82f6, #60a5fa)'})">
+            + Thêm Môn Học
+          </button>
+        </div>
+
+        <div v-if="editingTarget === 'monthly'">
+          <div class="input-group" style="margin-bottom: 1.5rem">
+            <label>Tiêu đề Mục tiêu Tháng</label>
+            <input type="text" v-model="editData.monthlyGoals.title">
+          </div>
+          <div v-for="(item, idx) in editData.monthlyGoals.items" :key="item.id" class="edit-card" style="display: flex; gap: 1rem; align-items: center;">
+            <div class="input-group">
+              <label>Tên công việc</label>
+              <input type="text" v-model="item.text">
+            </div>
+            <button class="btn-sm btn-danger" @click="editData.monthlyGoals.items.splice(idx, 1)">🗑️ Xóa</button>
+          </div>
+          <button class="btn-sm" @click="editData.monthlyGoals.items.push({id: Date.now(), text:'Công việc mới', done: false})">
+            + Thêm công việc
+          </button>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-text" @click="resetDefault">Khôi phục gốc</button>
+        <div style="display: flex; gap: 1rem;">
+          <button class="btn-sm" style="padding: 0.8rem 1.5rem" @click="showEditModal = false" :disabled="isSaving">Hủy</button>
+          <button class="btn-primary" @click="saveEditor" :disabled="isSaving">
+            {{ isSaving ? 'Đang lưu Cloud...' : 'Lưu Thay Đổi' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics Modal -->
+  <div v-if="showAnalyticsModal" class="modal-backdrop" @click.self="showAnalyticsModal = false">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2>Thống kê & AI Advisor</h2>
+        <button class="btn-close" @click="showAnalyticsModal = false">×</button>
+      </div>
+      <div class="modal-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        
+        <div style="display: flex; flex-direction: column; height: 100%;">
+          <h3 style="margin-bottom: 1rem; color: var(--text-main); font-weight:600">Phong độ 7 ngày qua</h3>
+          <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 12px; border: 1px solid var(--glass-border); margin-bottom: 1.5rem; flex-shrink: 0;">
+            <canvas id="myChart"></canvas>
+          </div>
+
+          <h3 style="margin-bottom: 1rem; color: var(--text-main); font-weight:600">Hành trình 365 ngày qua</h3>
+          <div style="flex: 1; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid var(--glass-border); padding: 1rem; display: flex; flex-direction: column;">
+             <div style="flex: 1; overflow-x: auto; overflow-y: hidden; padding-bottom: 5px; display: flex; align-items: center;">
+               <div class="heatmap-container">
+                 <div v-for="(day, idx) in heatmapData" :key="idx" 
+                      class="heatmap-cell" :class="'level-' + day.level"
+                      :title="`${day.date}: ${day.percent}%`"></div>
+               </div>
+             </div>
+             <div style="display:flex; justify-content:flex-end; gap: 6px; margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); align-items:center;">
+                Lười <div class="heatmap-cell"></div><div class="heatmap-cell level-1"></div><div class="heatmap-cell level-2"></div><div class="heatmap-cell level-3"></div><div class="heatmap-cell level-4"></div> Chăm
+             </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; height: 100%;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="color: var(--text-main); font-weight:600">Trợ lý DeepSeek</h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn-sm" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; font-weight: 600; padding: 0.5rem 0.8rem; border-radius: 8px;" @click="clearChat" title="Xóa lịch sử chat để tiết kiệm token API">
+                🧹 Xóa
+              </button>
+              <button class="btn-sm" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-weight: 600; padding: 0.5rem 1rem; border-radius: 8px;" @click="analyzeProgress" :disabled="aiLoading">
+                📊 Đánh giá tuần qua
+              </button>
+            </div>
+          </div>
+          
+          <div id="chat-box" style="flex: 1; background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px 12px 0 0; border: 1px solid var(--glass-border); border-bottom: none; overflow-y: auto; max-height: 350px; scroll-behavior: smooth;" class="ai-response">
+            <div v-for="(msg, idx) in chatMessages" :key="idx" style="margin-bottom: 1rem; display: flex; flex-direction: column;" :style="msg.role === 'user' ? 'align-items: flex-end;' : 'align-items: flex-start;'">
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem;">{{ msg.role === 'user' ? 'Bạn' : 'DeepSeek AI' }}</div>
+              <div style="padding: 0.8rem 1.2rem; border-radius: 12px; max-width: 95%; word-wrap: break-word;" :style="msg.role === 'user' ? 'background: var(--accent-1); color: white;' : 'background: rgba(255,255,255,0.05); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1);'">
+                <div v-if="msg.role === 'assistant'" v-html="renderMarkdown(msg.content)"></div>
+                <div v-else>{{ msg.content }}</div>
+              </div>
+            </div>
+            <div v-if="aiLoading" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; color: var(--accent-1);">
+              <div class="spinner" style="width: 20px; height: 20px; border-width: 2px; margin: 0;"></div> Đang suy nghĩ...
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 0.5rem; padding: 1rem; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 0 0 12px 12px;">
+             <input type="text" v-model="chatInput" @keyup.enter="sendChatMessage" placeholder="Hỏi AI bất cứ điều gì..." style="flex: 1; background: transparent; border: none; color: white; outline: none; font-family: 'Outfit', sans-serif;">
+             <button class="btn-sm" style="background: var(--accent-1); border-radius: 50%; width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center;" @click="sendChatMessage">➤</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
+
+const DEFAULT_RATIOS = [
+  {label:"English", pct:25, bar:"linear-gradient(90deg, #3b82f6, #60a5fa)"},
+  {label:"CCNA", pct:20, bar:"linear-gradient(90deg, #10b981, #34d399)"},
+  {label:"AWS", pct:15, bar:"linear-gradient(90deg, #f59e0b, #fbbf24)"},
+  {label:"WorldSkills", pct:15, bar:"linear-gradient(90deg, #ef4444, #f87171)"},
+  {label:"Tiếng Trung", pct:25, bar:"linear-gradient(90deg, #8b5cf6, #a78bfa)"},
+];
+
+const DEFAULT_LANG = {
+  type:"language", label:"Language Day",
+  pillBg:"rgba(59, 130, 246, 0.2)", pillColor:"#60a5fa",
+  badge:"Language Day — English + Tiếng Trung",
+  badgeBg:"rgba(59, 130, 246, 0.2)", badgeColor:"#60a5fa",
+  blocks:[
+    {time:"8:00 – 10:00", label:"English deep work", tag:"Sáng", tagBg:"rgba(59, 130, 246, 0.2)", tagColor:"#93c5fd", cards:[
+      {dot:"#60a5fa", label:"Listening & shadowing", color:"#bfdbfe", items:["Nghe podcast IT","Shadowing theo native","BBC / VOA Learning English"]},
+      {dot:"#93c5fd", label:"Speaking & vocab", color:"#bfdbfe", items:["Nói lại nội dung vừa nghe","Note từ vựng IT","Tech English chuyên ngành"]}
+    ]},
+    {time:"10:15 – 12:00", label:"English IT reading", tag:"Sáng", tagBg:"rgba(59, 130, 246, 0.2)", tagColor:"#93c5fd", cards:[
+      {dot:"#3b82f6", label:"Đọc tài liệu kỹ thuật", color:"#bfdbfe", items:["AWS Docs / Cisco Docs","Note từ mới","Tóm tắt lại bằng miệng"]}
+    ]},
+    {time:"14:00 – 17:00", label:"Tiếng Trung Chiều", tag:"Chiều", tagBg:"rgba(139, 92, 246, 0.2)", tagColor:"#c4b5fd", cards:[
+      {dot:"#a78bfa", label:"HSK vocab & nghe", color:"#ddd6fe", items:["HSK từ vựng","Nghe ngắn","Duolingo / HelloChinese"]},
+      {dot:"#c4b5fd", label:"Đọc & typing", color:"#ddd6fe", items:["Đọc đoạn ngắn","Typing tiếng Trung","Ôn bài cũ"]}
+    ]},
+    {time:"19:00 – 22:00", label:"Tiếng Trung Chuyên Sâu", tag:"Tối", tagBg:"rgba(139, 92, 246, 0.3)", tagColor:"#ddd6fe", cards:[
+      {dot:"#a78bfa", label:"Luyện HSK cấp cao", color:"#ddd6fe", items:["Giải đề thi thử HSK","Ghi chú cấu trúc câu phức tạp"]},
+      {dot:"#c4b5fd", label:"Luyện Nghe / Phim", color:"#ddd6fe", items:["Xem phim không sub","Giao tiếp qua app"]}
+    ]},
+    {time:"22:00 – 23:00", label:"English nhẹ", tag:"Tối", tagBg:"rgba(59, 130, 246, 0.2)", tagColor:"#93c5fd", cards:[
+      {dot:"#93c5fd", label:"Giải trí bằng tiếng Anh", color:"#bfdbfe", items:["Xem video tech","Nghe podcast tự nhiên","Không áp lực"]}
+    ]}
+  ]
+};
+
+const DEFAULT_TECH = {
+  type:"tech", label:"Tech Day",
+  pillBg:"rgba(16, 185, 129, 0.2)", pillColor:"#34d399",
+  badge:"Tech Day — CCNA + AWS + WorldSkills",
+  badgeBg:"rgba(16, 185, 129, 0.2)", badgeColor:"#34d399",
+  blocks:[
+    {time:"8:00 – 10:00", label:"CCNA lý thuyết", tag:"Sáng", tagBg:"rgba(16, 185, 129, 0.2)", tagColor:"#6ee7b7", cards:[
+      {dot:"#10b981", label:"Theory & subnetting", color:"#a7f3d0", items:["VLAN / STP / OSPF","ACL / NAT / DHCP","Subnetting tính tay"]}
+    ]},
+    {time:"10:15 – 12:00", label:"CCNA lab", tag:"Sáng", tagBg:"rgba(16, 185, 129, 0.2)", tagColor:"#6ee7b7", cards:[
+      {dot:"#34d399", label:"Packet Tracer / GNS3", color:"#a7f3d0", items:["Cấu hình bằng tay","Không copy config","Xóa → làm lại từ đầu"]}
+    ]},
+    {time:"14:00 – 15:30", label:"AWS hands-on", tag:"Chiều", tagBg:"rgba(245, 158, 11, 0.2)", tagColor:"#fcd34d", cards:[
+      {dot:"#f59e0b", label:"Console thực tế", color:"#fde68a", items:["Deploy EC2 / VPC","S3 static website","IAM user & policy"]},
+      {dot:"#fbbf24", label:"Architecture", color:"#fde68a", items:["Vẽ sơ đồ","Hiểu service dùng khi nào","AWS Skill Builder"]}
+    ]},
+    {time:"15:45 – 17:00", label:"AWS lý thuyết", tag:"Chiều", tagBg:"rgba(245, 158, 11, 0.2)", tagColor:"#fcd34d", cards:[
+      {dot:"#f59e0b", label:"Cloud theory", color:"#fde68a", items:["IAM / EC2 / VPC","Route 53 / Load Balancer","Pricing cơ bản"]}
+    ]},
+    {time:"19:00 – 23:00", label:"WorldSkills practice", tag:"Tối", tagBg:"rgba(239, 68, 68, 0.2)", tagColor:"#fca5a5", cards:[
+      {dot:"#ef4444", label:"Mô phỏng thi", color:"#fecaca", items:["Bấm thời gian","Task thực chiến","Không tra liên tục"]},
+      {dot:"#f87171", label:"Review lỗi", color:"#fecaca", items:["Ghi checklist lỗi","Cải thiện điểm yếu"]}
+    ]}
+  ]
+};
+
+createApp({
+  setup() {
+    const todayObj = new Date();
+    // Offset for local timezone issues, ensure correct local date
+    const offset = todayObj.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(todayObj - offset)).toISOString().slice(0, -1);
+    const todayStr = localISOTime.split('T')[0];
+    
+    const todayFormatted = todayObj.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const dayOfWeek = todayObj.getDay(); 
+    const realDayToTabMap = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6 };
+    const todayIndex = realDayToTabMap[dayOfWeek];
+
+    const activeDay = ref(todayIndex);
+    const activeTab = ref(todayIndex === 0 || todayIndex === 3 || todayIndex === 6 ? 'lang' : 'tech');
+    
+    const showEditModal = ref(false);
+    const showAnalyticsModal = ref(false);
+    const editingTarget = ref('lang');
+    const isLoading = ref(true);
+    const isSaving = ref(false);
+    const isSavingSilently = ref(false);
+
+    const appData = ref(null);
+    const editData = ref(null);
+    let chartInstance = null;
+
+    const heatmapData = computed(() => {
+      const days = [];
+      const today = new Date();
+      const hist = appData.value.history || {};
+      
+      // 364 days ago to today
+      for(let i = 364; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const offset = d.getTimezoneOffset() * 60000;
+        const dStr = (new Date(d - offset)).toISOString().split('T')[0];
+        
+        let percent = 0;
+        if(hist[dStr]) percent = hist[dStr].percent || 0;
+        
+        let level = 0;
+        if(percent > 0 && percent <= 25) level = 1;
+        else if(percent > 25 && percent <= 50) level = 2;
+        else if(percent > 50 && percent <= 75) level = 3;
+        else if(percent > 75) level = 4;
+        
+        days.push({
+          date: `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`,
+          level: level,
+          percent: percent
+        });
+      }
+      return days;
+    });
+
+    // Quick Notes State
+    const showNotes = ref(false);
+    const notesMode = ref('edit');
+    const noteContent = ref('');
+    const notesSaving = ref(false);
+    const notesSaved = ref(false);
+
+    const clearNotes = () => { if(confirm('Xóa toàn bộ ghi chú?')) noteContent.value = ''; };
+
+    const saveNotes = async () => {
+      notesSaving.value = true;
+      notesSaved.value = false;
+      appData.value.notes = noteContent.value;
+      try {
+        await supabase.from('study_plans').upsert({ id: 'my_plan', plan_data: appData.value }, { onConflict: 'id' });
+        notesSaved.value = true;
+        setTimeout(() => notesSaved.value = false, 3000);
+      } catch(e) {
+        localStorage.setItem('study_plan_v2_data', JSON.stringify(appData.value));
+      } finally {
+        notesSaving.value = false;
+      }
+    };
+
+    const aiLoading = ref(false);
+    const chatMessages = ref([
+      { role: 'assistant', content: 'Chào bạn! Mình là trợ lý AI DeepSeek. Bạn cần hỏi gì hoặc muốn phân tích tiến độ tuần qua?' }
+    ]);
+    const chatInput = ref('');
+    const renderMarkdown = (text) => { return window.marked ? marked.parse(text) : text; };
+    const scrollToBottom = () => { nextTick(() => { const el = document.getElementById('chat-box'); if(el) el.scrollTop = el.scrollHeight; }); };
+    
+    const clearChat = () => {
+      chatMessages.value = [{ role: 'assistant', content: 'Đã dọn dẹp trí nhớ để tiết kiệm API! Bạn muốn hỏi gì chủ đề mới nào?' }];
+    };
+
+    // Supabase
+    const supabaseUrl = 'https://hfmusfjolkdeuvgbmsmk.supabase.co';
+    const supabaseKey = 'sb_publishable_XtpD7lEWnDDnMaDsK3gsaw_XVElMe48';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    const DEFAULT_MONTHLY = {
+      title: `Mục tiêu Tháng ${todayObj.getMonth() + 1}`,
+      items: [
+        { id: 1, text: "Hoàn thành 50% CCNA", done: false },
+        { id: 2, text: "Luyện 3 bộ đề HSK", done: false }
+      ]
+    };
+
+    const loadData = async () => {
+      isLoading.value = true;
+      try {
+        const { data, error } = await supabase.from('study_plans').select('plan_data').eq('id', 'my_plan').single();
+        if (data && data.plan_data) {
+          let parsed = data.plan_data;
+          // Migration for new features
+          if(!parsed.ratios) parsed.ratios = JSON.parse(JSON.stringify(DEFAULT_RATIOS));
+          if(!parsed.monthlyGoals) parsed.monthlyGoals = JSON.parse(JSON.stringify(DEFAULT_MONTHLY));
+          if(!parsed.history) parsed.history = {};
+          if(!parsed.notes) parsed.notes = '';
+          
+          appData.value = parsed;
+          noteContent.value = parsed.notes || '';
+          localStorage.setItem('study_plan_v2_data', JSON.stringify(parsed));
+        } else {
+          loadLocalFallback();
+        }
+      } catch (err) {
+        loadLocalFallback();
+      } finally {
+        isLoading.value = false;
+        if(appData.value) editData.value = JSON.parse(JSON.stringify(appData.value));
+      }
+    };
+
+    const loadLocalFallback = () => {
+      const saved = localStorage.getItem('study_plan_v2_data');
+      if (saved) {
+        try {
+          let parsed = JSON.parse(saved);
+          if(!parsed.ratios) parsed.ratios = JSON.parse(JSON.stringify(DEFAULT_RATIOS));
+          if(!parsed.monthlyGoals) parsed.monthlyGoals = JSON.parse(JSON.stringify(DEFAULT_MONTHLY));
+          if(!parsed.history) parsed.history = {};
+          if(!parsed.notes) parsed.notes = '';
+          appData.value = parsed;
+          noteContent.value = parsed.notes || '';
+          return;
+        } catch(e) {}
+      }
+      appData.value = {
+        lang: JSON.parse(JSON.stringify(DEFAULT_LANG)),
+        tech: JSON.parse(JSON.stringify(DEFAULT_TECH)),
+        ratios: JSON.parse(JSON.stringify(DEFAULT_RATIOS)),
+        monthlyGoals: JSON.parse(JSON.stringify(DEFAULT_MONTHLY)),
+        history: {},
+        notes: ''
+      };
+    };
+
+    onMounted(() => { loadData(); });
+
+    let debounceTimer = null;
+    const saveToCloudSilently = () => {
+      localStorage.setItem('study_plan_v2_data', JSON.stringify(appData.value));
+      isSavingSilently.value = true;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          await supabase.from('study_plans').upsert({ id: 'my_plan', plan_data: appData.value });
+        } catch(e) {} finally {
+          isSavingSilently.value = false;
+        }
+      }, 1500);
+    };
+
+    const saveEditor = async () => {
+      isSaving.value = true;
+      const newData = JSON.parse(JSON.stringify(editData.value));
+      try {
+        const { error } = await supabase.from('study_plans').upsert({ id: 'my_plan', plan_data: newData });
+        if(error) throw error;
+        appData.value = newData;
+        localStorage.setItem('study_plan_v2_data', JSON.stringify(appData.value));
+        showEditModal.value = false;
+        alert("Lưu lên Cloud thành công!");
+      } catch(err) {
+        alert("Lỗi lưu lên Cloud! Đã lưu tạm vào LocalStorage.");
+        appData.value = newData;
+        localStorage.setItem('study_plan_v2_data', JSON.stringify(appData.value));
+        showEditModal.value = false;
+      } finally {
+        isSaving.value = false;
+      }
+    };
+
+    const resetDefault = () => {
+      if(confirm("Bạn có chắc muốn khôi phục dữ liệu gốc?")) {
+        appData.value = {
+          lang: JSON.parse(JSON.stringify(DEFAULT_LANG)),
+          tech: JSON.parse(JSON.stringify(DEFAULT_TECH)),
+          ratios: JSON.parse(JSON.stringify(DEFAULT_RATIOS)),
+          monthlyGoals: JSON.parse(JSON.stringify(DEFAULT_MONTHLY)),
+          history: {}
+        };
+        localStorage.removeItem('study_plan_v2_data');
+        editData.value = JSON.parse(JSON.stringify(appData.value));
+        saveToCloudSilently();
+      }
+    };
+
+    const week = computed(() => {
+      if(!appData.value) return [];
+      return [
+        { day: "T2", data: appData.value.lang },
+        { day: "T3", data: appData.value.tech },
+        { day: "T4", data: appData.value.tech },
+        { day: "T5", data: appData.value.lang },
+        { day: "T6", data: appData.value.tech },
+        { day: "T7", data: appData.value.tech },
+        { day: "CN", data: appData.value.lang },
+      ]
+    });
+
+    const tabs = computed(() => {
+      if(!appData.value) return [];
+      return [
+        { key: "lang", label: "Language Day (T2, T5, CN)", data: appData.value.lang },
+        { key: "tech", label: "Tech Day (T3, T4, T6, T7)", data: appData.value.tech },
+      ]
+    });
+
+    const selectDay = (i) => {
+      activeDay.value = i;
+      activeTab.value = week.value[i].data.type === 'language' ? 'lang' : 'tech';
+    };
+
+    // Tracker Logic
+    const calculateTodayTotal = () => {
+      const data = week.value[todayIndex].data;
+      let count = 0;
+      data.blocks.forEach(b => b.cards.forEach(c => count += c.items.length));
+      return count || 1;
+    };
+
+    const isTaskChecked = (bIdx, cIdx, iIdx) => {
+      if (!appData.value.history[todayStr]) return false;
+      const key = `${bIdx}_${cIdx}_${iIdx}`;
+      return appData.value.history[todayStr].checked.includes(key);
+    };
+
+    const toggleTask = (bIdx, cIdx, iIdx) => {
+      if (!appData.value.history[todayStr]) {
+        appData.value.history[todayStr] = { checked: [], total: 0, percent: 0 };
+      }
+      const key = `${bIdx}_${cIdx}_${iIdx}`;
+      const hist = appData.value.history[todayStr];
+      
+      const idx = hist.checked.indexOf(key);
+      if (idx > -1) hist.checked.splice(idx, 1);
+      else hist.checked.push(key);
+      
+      hist.total = calculateTodayTotal();
+      hist.percent = Math.round((hist.checked.length / hist.total) * 100);
+      
+      saveToCloudSilently();
+    };
+
+    const todayPercent = computed(() => {
+      if(appData.value && appData.value.history[todayStr]) return appData.value.history[todayStr].percent;
+      return 0;
+    });
+
+    const monthlyPercent = computed(() => {
+      if(!appData.value || !appData.value.monthlyGoals || !appData.value.monthlyGoals.items.length) return 0;
+      const items = appData.value.monthlyGoals.items;
+      const done = items.filter(i => i.done).length;
+      return Math.round((done / items.length) * 100);
+    });
+
+    // Analytics & AI
+    const openAnalytics = () => {
+      showAnalyticsModal.value = true;
+      nextTick(() => { renderChart(); });
+    };
+
+    const renderChart = () => {
+      if (chartInstance) chartInstance.destroy();
+      const ctx = document.getElementById('myChart');
+      if(!ctx) return;
+      
+      const labels = [];
+      const dataPoints = [];
+      
+      for(let i=6; i>=0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        // Correct timezone offset for chart dates too
+        const offset = d.getTimezoneOffset() * 60000;
+        const dStr = (new Date(d - offset)).toISOString().split('T')[0];
+        labels.push(d.getDate() + '/' + (d.getMonth()+1));
+        
+        if (appData.value.history[dStr]) dataPoints.push(appData.value.history[dStr].percent || 0);
+        else dataPoints.push(0);
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '% Hoàn thành (7 ngày qua)',
+            data: dataPoints,
+            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+            borderColor: 'rgba(16, 185, 129, 1)',
+            borderWidth: 2,
+            tension: 0.3,
+            fill: true,
+            pointBackgroundColor: '#10b981'
+          }]
+        },
+        options: {
+           responsive: true,
+           scales: { y: { beginAtZero: true, max: 100 }, x: { grid: { color: 'rgba(255,255,255,0.05)' } } },
+           plugins: { legend: { labels: { color: 'white' } } }
+        }
+      });
+    };
+
+    const analyzeProgress = async () => {
+      if(aiLoading.value) return;
+      aiLoading.value = true;
+      
+      const hist = appData.value.history;
+      const recentDays = [];
+      for(let i=0; i<7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const offset = d.getTimezoneOffset() * 60000;
+        const dStr = (new Date(d - offset)).toISOString().split('T')[0];
+        recentDays.push(`- Ngày ${d.getDate()}/${d.getMonth()+1}: ${hist[dStr] ? hist[dStr].percent + '%' : '0%'}`);
+      }
+      const monthly = appData.value.monthlyGoals.items.map(it => `- ${it.text}: ${it.done ? 'Hoàn thành' : 'Chưa'}`).join('\n');
+      
+      const prompt = `Tôi là một sinh viên IT đang tự học. Dưới đây là dữ liệu học tập của tôi:
+Tiến độ 7 ngày qua:
+${recentDays.join('\n')}
+
+Mục tiêu tháng này:
+${monthly}
+
+Hãy đóng vai một chuyên gia giáo dục hoặc người hướng dẫn kỷ luật khắc nghiệt. Nhận xét phong độ 7 ngày qua của tôi và đưa ra 1-2 lời khuyên cụ thể để đạt mục tiêu tháng. Trả lời súc tích bằng tiếng Việt.`;
+
+      chatMessages.value.push({ role: 'user', content: 'Hãy phân tích tiến độ học tập tuần qua của tôi.' });
+      scrollToBottom();
+
+      try {
+        const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer sk-5f1dc8d568064c1a8f572df0a4b56e42' },
+          body: JSON.stringify({
+            model: "deepseek-chat",
+            messages: [{ role: "system", content: prompt }]
+          })
+        });
+        const data = await res.json();
+        chatMessages.value.push({ role: 'assistant', content: data.choices[0].message.content });
+      } catch(e) {
+        chatMessages.value.push({ role: 'assistant', content: "Lỗi kết nối AI: " + e.message });
+      } finally {
+        aiLoading.value = false;
+        scrollToBottom();
+      }
+    };
+
+    const sendChatMessage = async () => {
+      if(!chatInput.value.trim() || aiLoading.value) return;
+      const userText = chatInput.value.trim();
+      chatMessages.value.push({ role: 'user', content: userText });
+      chatInput.value = '';
+      aiLoading.value = true;
+      scrollToBottom();
+      
+      try {
+        const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer sk-5f1dc8d568064c1a8f572df0a4b56e42' },
+          body: JSON.stringify({
+            model: "deepseek-chat",
+            messages: [
+              { role: "system", content: "Bạn là một trợ lý ảo siêu việt của DeepSeek, giúp sinh viên IT tự học. Hãy trả lời cực kỳ ngắn gọn và súc tích bằng tiếng Việt." },
+              // CHỈ GỬI 6 TIN NHẮN GẦN NHẤT ĐỂ TIẾT KIỆM TOKEN API
+              ...chatMessages.value.slice(-6).map(m => ({role: m.role, content: m.content}))
+            ]
+          })
+        });
+        const data = await res.json();
+        chatMessages.value.push({ role: 'assistant', content: data.choices[0].message.content });
+      } catch(e) {
+        chatMessages.value.push({ role: 'assistant', content: "Lỗi kết nối AI: " + e.message });
+      } finally {
+        aiLoading.value = false;
+        scrollToBottom();
+      }
+    };
+
+    const openEditor = () => { editData.value = JSON.parse(JSON.stringify(appData.value)); showEditModal.value = true; };
+    const addBlock = (type) => { editData.value[type].blocks.push({ time: "00:00 - 00:00", label: "Mới", tag: "Tự chọn", tagBg: "rgba(255,255,255,0.1)", tagColor: "#fff", cards: [] }); };
+    const removeBlock = (type, bIdx) => { if(confirm("Xóa?")) editData.value[type].blocks.splice(bIdx, 1); };
+    const addCard = (b) => { b.cards.push({ dot: "#3b82f6", label: "Công việc mới", color: "#bfdbfe", items: ["Chi tiết 1"] }); };
+    const removeCard = (b, cIdx) => { b.cards.splice(cIdx, 1); };
+    const addItem = (c) => { c.items.push("Nội dung mới"); };
+    const removeItem = (c, iIdx) => { c.items.splice(iIdx, 1); };
+    const updateTagColor = (b, type) => {
+      if (type === 'lang') {
+        if (b.tag === 'Sáng') { b.tagBg = "rgba(59, 130, 246, 0.2)"; b.tagColor = "#93c5fd"; }
+        else if (b.tag === 'Chiều') { b.tagBg = "rgba(139, 92, 246, 0.2)"; b.tagColor = "#c4b5fd"; }
+        else if (b.tag === 'Tối') { b.tagBg = "rgba(139, 92, 246, 0.3)"; b.tagColor = "#ddd6fe"; }
+        else { b.tagBg = "rgba(255,255,255,0.1)"; b.tagColor = "#fff"; }
+      } else {
+        if (b.tag === 'Sáng') { b.tagBg = "rgba(16, 185, 129, 0.2)"; b.tagColor = "#6ee7b7"; }
+        else if (b.tag === 'Chiều') { b.tagBg = "rgba(245, 158, 11, 0.2)"; b.tagColor = "#fcd34d"; }
+        else if (b.tag === 'Tối') { b.tagBg = "rgba(239, 68, 68, 0.2)"; b.tagColor = "#fca5a5"; }
+        else { b.tagBg = "rgba(255,255,255,0.1)"; b.tagColor = "#fff"; }
+      }
+    };
+
+    return {
+      appData, activeDay, activeTab, week, tabs, selectDay, todayIndex, todayFormatted,
+      showEditModal, editingTarget, editData, isLoading, isSaving, isSavingSilently,
+      openEditor, saveEditor, resetDefault,
+      addBlock, removeBlock, addCard, removeCard, addItem, removeItem, updateTagColor,
+      isTaskChecked, toggleTask, saveToCloudSilently, todayPercent, monthlyPercent,
+      showAnalyticsModal, openAnalytics, analyzeProgress, sendChatMessage, clearChat, chatMessages, chatInput, aiLoading, renderMarkdown,
+      heatmapData,
+      showNotes, notesMode, noteContent, notesSaving, notesSaved, clearNotes, saveNotes
+    };
+  }
+}).mount('#app');
+
+// Đăng ký Service Worker cho PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('Service Worker đã đăng ký thành công:', reg.scope))
+      .catch(err => console.error('Lỗi đăng ký Service Worker:', err));
+  });
+}
+</script>
+</body>
+</html>
