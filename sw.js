@@ -1,10 +1,14 @@
-const CACHE_NAME = 'study-plan-v2-cache-v2';
+const CACHE_NAME = 'study-plan-v2-cache-v4';
 const urlsToCache = [
   '/',
-  '/study_plan_v2.html',
+  '/index.html',
   '/manifest.json',
   '/icon-512.png'
 ];
+
+function isLegacyStudyPlanUrl(url) {
+  return url.pathname === '/study_plan_v2.html' || url.pathname.endsWith('/study_plan_v2.html');
+}
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -16,6 +20,14 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  if (isLegacyStudyPlanUrl(url)) {
+    event.respondWith(
+      caches.match('/index.html').then(cached => cached || fetch('/index.html'))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {

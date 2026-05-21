@@ -1,14 +1,13 @@
 @echo off
 echo ===================================================
-echo   Kho Khoi dong Server Local de cai dat PWA
+echo   Khoi dong Server Local (PWA / test)
 echo ===================================================
-echo Dang bat HTTP Server...
-echo Mo trinh duyet cua ban va truy cap vao dia chi sau:
-echo http://localhost:8080/study_plan_v2.html
+echo Local:  http://localhost:8080/
+echo Cloud:  https://to-study-silk.vercel.app/
 echo ===================================================
 echo De tat server, bam Ctrl + C o cua so nay.
 
-start http://localhost:8080/study_plan_v2.html
+start http://localhost:8080/
 npx -y http-server -p 8080 -c-1
 
 pause

@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/study_plan_v2.html",
+      "destination": "/index.html"
+    }
+  ]
+}
